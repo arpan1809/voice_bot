@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+jinja2
+speechrecognition
+pyttsx3
+python-dotenv
+groq
+ffmpeg-python
+pydantic
