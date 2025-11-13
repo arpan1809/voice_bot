@@ -12,7 +12,7 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="voice_bot/templates")
 recognizer = sr.Recognizer()
 
 # ✅ Only initialize TTS locally
@@ -80,4 +80,5 @@ async def process_audio(file: UploadFile = File(...)):
         return JSONResponse({"text": text, "reply": response})
     except Exception as e:
         return JSONResponse({"error": str(e)})
+
 
