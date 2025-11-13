@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>🎙️ Voice Bot</title>
+<style>
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .container {
+    background: #161b22;
+    padding: 40px;
+    border-radius: 14px;
+    box-shadow: 0 0 20px rgba(63,185,80,0.25);
+    width: 420px;
+    text-align: center;
+  }
+  h1 {
+    color: #3fb950;
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+  p {
+    color: #8b949e;
+    font-size: 0.95em;
+  }
+  button {
+    margin-top: 18px;
+    padding: 14px 28px;
+    background: #238636;
+    color: #fff;
+    font-size: 1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #2ea043;
+  }
+  #status {
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: #8b949e;
+  }
+  #chat {
+    margin-top: 20px;
+    font-size: 0.95em;
+    text-align: left;
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .user { color: #58a6ff; }
+  .bot { color: #3fb950; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Voice Bot</h1>
+    <p>Hold the button, speak your answer, and release to send.</p>
+
+    <button id="recordBtn">🎙️ Hold to Talk</button>
+    <div id="status">Status: Idle</div>
+    <div id="chat"></div>
+  </div>
+
+<script>
+  const recordBtn = document.getElementById("recordBtn");
+  const statusEl = document.getElementById("status");
+  const chatEl = document.getElementById("chat");
+  let mediaRecorder, chunks = [];
+
+ 
+  async function setupRecorder() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = sendAudio;
+  }
+
+  
+  async function sendAudio() {
+    statusEl.innerText = "⏳ Processing...";
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    chunks = [];
+
+    const formData = new FormData();
+    formData.append("file", blob, "voice.webm");
+
+    try {
+      const res = await fetch("/process-voice/", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.reply) {
+       
+        chatEl.innerHTML += `<div class="user"><b>You:</b> ${data.text}</div>`;
+        chatEl.innerHTML += `<div class="bot"><b>Bot:</b> ${data.reply}</div><hr style="border: 0.5px solid #30363d;">`;
+
+        
+        chatEl.scrollTop = chatEl.scrollHeight;
+
+      
+        const utter = new SpeechSynthesisUtterance(data.reply);
+        utter.lang = "en-US";
+        speechSynthesis.speak(utter);
+
+        statusEl.innerText = "✅ Done";
+      } else if (data.error) {
+        statusEl.innerText = "⚠️ " + data.error;
+      }
+    } catch (err) {
+      statusEl.innerText = "⚠️ Network Error: " + err.message;
+    }
+  }
+
+  
+  recordBtn.addEventListener("mousedown", async () => {
+    if (!mediaRecorder) await setupRecorder();
+    chunks = [];
+    mediaRecorder.start();
+    statusEl.innerText = "🎧 Listening...";
+  });
+
+  recordBtn.addEventListener("mouseup", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      statusEl.innerText = "🎤 Uploading...";
+    }
+  });
+
+  recordBtn.addEventListener("mouseleave", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      statusEl.innerText = "🎤 Uploading...";
+    }
+  });
+</script>
+</body>
+</html>
