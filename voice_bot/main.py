@@ -1,30 +1,37 @@
-from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
+import os
+import platform
 import speech_recognition as sr
-import tempfile, os, pyttsx3
 from groq import Groq
 from dotenv import load_dotenv
 import ffmpeg
-
+from fastapi import FastAPI, Request, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
 recognizer = sr.Recognizer()
-engine = pyttsx3.init()
+
+# ✅ Only initialize TTS locally
+engine = None
+if platform.system() == "Windows":
+    import pyttsx3
+    engine = pyttsx3.init()
 
 
 def speak_text(text):
-    """Use pyttsx3 for speaking locally"""
-    engine.say(text)
-    engine.runAndWait()
+    """Speak only if local environment supports it"""
+    if engine:
+        engine.say(text)
+        engine.runAndWait()
+    else:
+        print(f"[TTS skipped: server mode] Bot: {text}")
+
 
 def generate_response(prompt: str):
-    """Call Groq API using your same logic"""
     completion = client.chat.completions.create(
         model="openai/gpt-oss-20b",
         messages=[
@@ -39,11 +46,11 @@ def generate_response(prompt: str):
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+
 @app.post("/process-voice/")
 async def process_audio(file: UploadFile = File(...)):
-    """Handle audio from browser mic and respond with text + Groq reply"""
     try:
-       
+        import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_in:
             temp_in_path = temp_in.name
             temp_in.write(await file.read())
@@ -51,6 +58,7 @@ async def process_audio(file: UploadFile = File(...)):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_out:
             temp_out_path = temp_out.name
 
+        # Convert webm → wav
         (
             ffmpeg
             .input(temp_in_path)
@@ -59,29 +67,17 @@ async def process_audio(file: UploadFile = File(...)):
             .run(quiet=True)
         )
 
-     
         with sr.AudioFile(temp_out_path) as source:
             audio_data = recognizer.record(source)
-            try:
-                text = recognizer.recognize_google(audio_data)
-            except sr.UnknownValueError:
-                return {"error": "Couldn't understand your voice."}
-            except sr.RequestError:
-                return {"error": "Speech Recognition service unavailable."}
+            text = recognizer.recognize_google(audio_data)
 
-      
         response = generate_response(text)
-        print(f" You: {text}\n🤖 Bot: {response}\n")
-
-      
         speak_text(response)
 
-       
         os.remove(temp_in_path)
         os.remove(temp_out_path)
 
         return JSONResponse({"text": text, "reply": response})
-
     except Exception as e:
         return JSONResponse({"error": str(e)})
 
