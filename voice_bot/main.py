@@ -58,7 +58,7 @@ async def process_audio(file: UploadFile = File(...)):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_out:
             temp_out_path = temp_out.name
 
-        # Convert webm → wav
+       
         (
             ffmpeg
             .input(temp_in_path)
@@ -84,6 +84,7 @@ async def process_audio(file: UploadFile = File(...)):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  
     uvicorn.run("voice_bot.main:app", host="0.0.0.0", port=port)
+
 
 
 
