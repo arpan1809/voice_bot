@@ -15,7 +15,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="voice_bot/templates")
 recognizer = sr.Recognizer()
 
-# ✅ Only initialize TTS locally
+
 engine = None
 if platform.system() == "Windows":
     import pyttsx3
@@ -84,6 +84,7 @@ async def process_audio(file: UploadFile = File(...)):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  
     uvicorn.run("voice_bot.main:app", host="0.0.0.0", port=port)
+
 
 
 
